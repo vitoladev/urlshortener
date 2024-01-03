@@ -14,10 +14,16 @@ import (
 
 type Service interface {
 	Health() map[string]string
+	ShortenUrl(urlData UrlData) error
 }
 
 type service struct {
 	db *sql.DB
+}
+
+type UrlData struct {
+	OriginalUrl string
+	ShortUrl    string
 }
 
 var (
@@ -50,4 +56,17 @@ func (s *service) Health() map[string]string {
 	return map[string]string{
 		"message": "It's healthy",
 	}
+}
+
+func (s *service) ShortenUrl(urlData UrlData) error {
+	query := "INSERT INTO url (original_url, short_url) VALUES ($1, $2)"
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(urlData.OriginalUrl, urlData.ShortUrl)
+
+	return err
 }
