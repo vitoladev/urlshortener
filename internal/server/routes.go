@@ -19,10 +19,21 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 func (s *Server) GetShortUrlHandler(c *gin.Context) {
 	shortUrl := c.Param("url")
-	resp := make(map[string]string)
-	resp["message"] = shortUrl
 
-	c.JSON(http.StatusOK, resp)
+	originalUrl, err := s.db.GetOriginalUrl(shortUrl)
+
+	if err != nil {
+		c.String(500, "Internal Server Error")
+		return
+	}
+
+	if originalUrl == "" {
+		c.String(404, "Short URL not found")
+		return
+	}
+
+	// Redirect the user to the original URL
+	c.Redirect(302, originalUrl)
 }
 
 type ShortenUrlRequestBody struct {
@@ -39,22 +50,30 @@ func (s *Server) ShortenUrlHandler(c *gin.Context) {
 		return
 	}
 
-	shortUrl := uuid.New().String()[:7]
+	existingShortUrl, _ := s.db.GetShortUrl(requestBody.Url)
 
-	err := s.db.ShortenUrl(database.UrlData{ OriginalUrl: requestBody.Url, ShortUrl: shortUrl})
-	
-	if err != nil {
-		c.JSON(500, gin.H{
-			"message": "Internal Server Error",
+	if existingShortUrl != "" {
+		// The original URL already has a short URL, return it
+		c.JSON(http.StatusOK, gin.H{
+			"url": existingShortUrl,
 		})
 		return
 	}
 
-	c.JSON(200, gin.H{
+	// If no existing short URL, generate a new one
+	shortUrl := uuid.New().String()[:7]
+
+	err := s.db.ShortenUrl(database.UrlData{OriginalUrl: requestBody.Url, ShortUrl: shortUrl})
+
+	if err != nil {
+		c.String(500, "Internal Server Error")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
 		"url": shortUrl,
 	})
 }
-
 
 func (s *Server) healthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Health())
