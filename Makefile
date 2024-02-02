@@ -17,7 +17,7 @@ docker-run:
 		: ; \
 	else \
 		echo "Falling back to Docker Compose V1"; \
-		docker-compose up -d; \
+		docker compose up -d; \
 	fi
 
 # Shutdown DB container
@@ -26,7 +26,7 @@ docker-down:
 		: ; \
 	else \
 		echo "Falling back to Docker Compose V1"; \
-		docker-compose down; \
+		docker compose down; \
 	fi
 
 # Test the application

@@ -7,10 +7,24 @@ services:
       POSTGRES_DB: ${DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - migrate
     ports:
       - "${DB_PORT}:5432"
     volumes:
       - psql_volume:/var/lib/postgresql/data
+  migrate:
+    image: golang:1.21
+    # install goose before
+    # go get -u github.com/pressly/goose/cmd/goose
+    command: go install github.com/pressly/goose/v3/cmd/goose@latest && goose -dir /migrations postgres "host=psql port=5432 user=${DB_USERNAME} dbname=${DB_DATABASE} password=${DB_PASSWORD} sslmode=disable" up
+    environment:
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+    volumes:
+      - .:/migrations
 
 volumes:
   psql_volume:
