@@ -1,23 +1,44 @@
-package database
+package repository
 
 import "fmt"
 
-func (s *service) ShortenUrl(urlData UrlData) error {
+type ShortenUrlPayload struct {
+	OriginalUrl string
+	ShortUrl    string
+}
+
+type UrlRepository interface {
+	ShortenUrl(url ShortenUrlPayload) error
+	GetOriginalUrl(shortUrl string) (string, error)
+	GetShortUrl(originalUrl string) (string, error)
+}
+
+func NewUrlRepository(r *Repository) UrlRepository {
+	return &urlRepository{
+		Repository: r,
+	}
+}
+
+type urlRepository struct {
+	*Repository
+}
+
+func (r *urlRepository) ShortenUrl(url ShortenUrlPayload) error {
 	query := "INSERT INTO url (original_url, short_url) VALUES ($1, $2)"
-	stmt, err := s.db.Prepare(query)
+	stmt, err := r.db.Prepare(query)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(urlData.OriginalUrl, urlData.ShortUrl)
+	_, err = stmt.Exec(url.OriginalUrl, url.ShortUrl)
 
 	return err
 }
 
-func (s *service) GetOriginalUrl(shortUrl string) (string, error) {
+func (r *urlRepository) GetOriginalUrl(shortUrl string) (string, error) {
 	query := "SELECT original_url FROM url WHERE short_url = $1"
-	stmt, err := s.db.Prepare(query)
+	stmt, err := r.db.Prepare(query)
 	if err != nil {
 		return "", err
 	}
@@ -42,9 +63,9 @@ func (s *service) GetOriginalUrl(shortUrl string) (string, error) {
 	return "", fmt.Errorf("no original URL found for short URL: %s", shortUrl)
 }
 
-func (s *service) GetShortUrl(originalUrl string) (string, error) {
+func (r *urlRepository) GetShortUrl(originalUrl string) (string, error) {
 	query := "SELECT short_url FROM url WHERE original_url = $1"
-	stmt, err := s.db.Prepare(query)
+	stmt, err := r.db.Prepare(query)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +82,7 @@ func (s *service) GetShortUrl(originalUrl string) (string, error) {
 		var shortUrl string
 		if err := rows.Scan(&shortUrl); err != nil {
 			return "", err
-		} 
+		}
 		return shortUrl, nil
 	}
 

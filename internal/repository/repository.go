@@ -1,4 +1,4 @@
-package database
+package repository
 
 import (
 	"context"
@@ -12,20 +12,14 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-type Service interface {
-	Health() map[string]string
-	ShortenUrl(urlData UrlData) error
-	GetOriginalUrl(shortUrl string) (string, error)
-	GetShortUrl(originalUrl string) (string, error)
-}
-
-type service struct {
+type Repository struct {
 	db *sql.DB
 }
 
-type UrlData struct {
-	OriginalUrl string
-	ShortUrl    string
+func NewRepository(db *sql.DB) *Repository {
+	return &Repository{
+		db: db,
+	}
 }
 
 var (
@@ -36,27 +30,22 @@ var (
 	host     = os.Getenv("DB_HOST")
 )
 
-func New() Service {
+func NewDB() *sql.DB {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", username, password, host, port, database)
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		log.Fatal(err)
+		log.Println("failed connect the database")
 	}
-	s := &service{db: db}
-	return s
-}
 
-func (s *service) Health() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	err := s.db.PingContext(ctx)
+	err = db.PingContext(ctx)
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("db down: %v", err))
 	}
 
-	return map[string]string{
-		"message": "It's healthy",
-	}
+	log.Println("Connected to the database")
+	return db
 }
-

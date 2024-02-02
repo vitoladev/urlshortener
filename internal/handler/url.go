@@ -1,19 +1,31 @@
-package server
+package handler
 
 import (
+	"log"
 	"net/http"
-	"urlshortener/internal/database"
+	"urlshortener/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-func (s *Server) GetShortUrlHandler(c *gin.Context) {
+type UrlHandler struct {
+	urlRepo repository.UrlRepository
+}
+
+func NewUrlHandler(urlRepository repository.UrlRepository) *UrlHandler {
+	return &UrlHandler{
+		urlRepo: urlRepository,
+	}
+}
+
+func (h *UrlHandler) GetShortUrlHandler(c *gin.Context) {
 	shortUrl := c.Param("url")
 
-	originalUrl, err := s.db.GetOriginalUrl(shortUrl)
+	originalUrl, err := h.urlRepo.GetOriginalUrl(shortUrl)
 
 	if err != nil {
+		log.Println(err)
 		c.String(500, "Internal Server Error")
 		return
 	}
@@ -31,7 +43,7 @@ type ShortenUrlRequestBody struct {
 	Url string `json:"url" binding:"required,url"`
 }
 
-func (s *Server) ShortenUrlHandler(c *gin.Context) {
+func (h *UrlHandler) ShortenUrlHandler(c *gin.Context) {
 	var requestBody ShortenUrlRequestBody
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
@@ -41,7 +53,7 @@ func (s *Server) ShortenUrlHandler(c *gin.Context) {
 		return
 	}
 
-	existingShortUrl, _ := s.db.GetShortUrl(requestBody.Url)
+	existingShortUrl, _ := h.urlRepo.GetShortUrl(requestBody.Url)
 
 	if existingShortUrl != "" {
 		// The original URL already has a short URL, return it
@@ -54,9 +66,10 @@ func (s *Server) ShortenUrlHandler(c *gin.Context) {
 	// If no existing short URL, generate a new one
 	shortUrl := uuid.New().String()[:7]
 
-	err := s.db.ShortenUrl(database.UrlData{OriginalUrl: requestBody.Url, ShortUrl: shortUrl})
+	err := h.urlRepo.ShortenUrl(repository.ShortenUrlPayload{OriginalUrl: requestBody.Url, ShortUrl: shortUrl})
 
 	if err != nil {
+		log.Println(err)
 		c.String(500, "Internal Server Error")
 		return
 	}
